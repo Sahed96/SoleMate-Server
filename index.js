@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion } = require("mongodb");
-require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -26,60 +25,48 @@ async function run() {
     const productCollection = client.db("productsDB").collection("products");
 
     app.get("/allProducts", async (req, res) => {
-      const query = req.query.value || "";
+      const sortQuery = req.query.value || "";
       const category = req.query.category || "";
       const name = req.query.search || "";
       const range = req.query.range || "";
 
-      let result = [];
-
-      // Sort by price or date
-      if (query) {
-        if (query === "low") {
-          result = await productCollection.find().sort({ price: 1 }).toArray();
-        } else if (query === "high") {
-          result = await productCollection.find().sort({ price: -1 }).toArray();
-        } else if (query === "date") {
-          result = await productCollection.find().sort({ date: -1 }).toArray();
-        }
-      }
+      let query = {};
 
       // Filter by category
       if (category && category !== "all") {
-        result = await productCollection.find({ category }).toArray();
-      } else if (category === "all" || !category) {
-        result = await productCollection.find().toArray();
+        query.category = category;
       }
 
       // Filter by price range
       if (range) {
-        let priceFilter = {};
         if (range === "lowest") {
-          priceFilter = { price: { $gte: 0, $lte: 50 } };
+          query.price = { $gte: 0, $lte: 50 };
         } else if (range === "middle") {
-          priceFilter = { price: { $gte: 50, $lte: 100 } };
+          query.price = { $gte: 50, $lte: 100 };
         } else if (range === "highest") {
-          priceFilter = { price: { $gte: 100, $lte: 150 } };
+          query.price = { $gte: 100, $lte: 150 };
         }
-
-        result = await productCollection.find(priceFilter).toArray();
       }
 
       // Search by name using regex
       if (name) {
-        result = await productCollection
-          .find({
-            productName: { $regex: name, $options: "i" },
-          })
-          .toArray();
+        query.productName = { $regex: name, $options: "i" };
       }
 
-      // Default: return all products if no query, category, or name is provided
-      if (!query && !category && !name && !range) {
-        result = await productCollection.find().toArray();
+      // Sorting options
+      let sort = {};
+      if (sortQuery === "low") {
+        sort.price = 1;
+      } else if (sortQuery === "high") {
+        sort.price = -1;
+      } else if (sortQuery === "date") {
+        sort.date = -1;
       }
 
-      return res.send(result);
+      // Fetch the results based on query and sort
+      const result = await productCollection.find(query).sort(sort).toArray();
+
+      res.send(result);
     });
 
     await client.db("admin").command({ ping: 1 });

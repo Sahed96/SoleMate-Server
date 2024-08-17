@@ -60,7 +60,7 @@ async function run() {
       } else if (sortQuery === "high") {
         sort.price = -1;
       } else if (sortQuery === "date") {
-        sort.date = -1;
+        sort.creationDateTime = -1;
       }
 
       // Fetch the results based on query and sort

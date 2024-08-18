@@ -29,15 +29,15 @@ async function run() {
       const category = req.query.category || "";
       const name = req.query.search || "";
       const range = req.query.range || "";
+      const page = parseInt(req.query.page) || 1;
+      const limit = 6;
 
       let query = {};
 
-      // Filter by category
       if (category && category !== "all") {
         query.category = category;
       }
 
-      // Filter by price range
       if (range) {
         if (range === "lowest") {
           query.price = { $gte: 0, $lte: 50 };
@@ -48,12 +48,10 @@ async function run() {
         }
       }
 
-      // Search by name using regex
       if (name) {
         query.productName = { $regex: name, $options: "i" };
       }
 
-      // Sorting options
       let sort = {};
       if (sortQuery === "low") {
         sort.price = 1;
@@ -63,10 +61,23 @@ async function run() {
         sort.creationDateTime = -1;
       }
 
-      // Fetch the results based on query and sort
-      const result = await productCollection.find(query).sort(sort).toArray();
+      const skip = (page - 1) * limit;
 
-      res.send(result);
+      const result = await productCollection
+        .find(query)
+        .sort(sort)
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      const totalItems = await productCollection.countDocuments(query);
+
+      res.send({
+        products: result,
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+        currentPage: page,
+      });
     });
 
     await client.db("admin").command({ ping: 1 });
@@ -74,7 +85,6 @@ async function run() {
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
   } finally {
-    // Ensures that the client will close when you finish/error
     // await client.close();
   }
 }
